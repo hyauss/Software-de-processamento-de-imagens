@@ -10,10 +10,11 @@
                 "${file}",
                 "-o",
                 "${fileDirname}\\${fileBasenameNoExtension}.exe",
-                "-Ic:/Users/vinia/DocumentosForaDaNuvem/Enviroments/SDL3/include",
-                "-Lc:/Users/vinia/DocumentosForaDaNuvem/Enviroments/SDL3/lib",
+                "-Ic:/Users/Gustavo/OneDrive/Área de Trabalho/IDES/VS_Code/7sem/Computacao Visual/SDL3/include",
+                "-Lc:/Users/Gustavo/OneDrive/Área de Trabalho/IDES/VS_Code/7sem/Computacao Visual/SDL3/lib",
                 "-lSDL3",
                 "-lSDL3_image"
+                
             ],
             "options": {
                 "cwd": "C:/msys64/ucrt64/bin"

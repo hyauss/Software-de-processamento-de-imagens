@@ -4,7 +4,7 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/Users/vinia/DocumentosForaDaNuvem/Enviroments/SDL3/include"
+                "C:/Users/Gustavo/OneDrive/Área de Trabalho/IDES/VS_Code/7sem/Computacao Visual/SDL3/include"
             ],
             "defines": [
                 "_DEBUG",
