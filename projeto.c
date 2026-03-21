@@ -9,7 +9,6 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 #include <math.h>
-
 //------------------------------------------------------------------------------
 
 enum constants
@@ -420,6 +419,18 @@ static void loop(void)
   calcularHistograma(g_image.surface, hist);
   renderHistograma(g_window2.renderer, hist);
 
+  int totalPixels = g_image.surface->w * g_image.surface->h;
+
+  float media = calcularMedia(hist, totalPixels);
+  float desvio = calcularDesvioPadrao(hist, totalPixels, media);
+  const char *brilho = classificarBrilho(media);
+  const char *contraste = classificarContraste(desvio);
+
+  printf("Media: %.2f (%s)\n", media, brilho);
+  printf("Desvio: %.2f (%s)\n", desvio, contraste);
+  printf("Brilho: (%s)\n", brilho);
+  printf("Contraste: (%s)\n", contraste);
+
   SDL_Event event;
   bool isRunning = true;
   while (isRunning)
@@ -457,6 +468,19 @@ static void loop(void)
       int hist[256];
       calcularHistograma(g_image.surface, hist);
       renderHistograma(g_window2.renderer, hist);
+
+      totalPixels = g_image.surface->w * g_image.surface->h;
+
+      media = calcularMedia(hist, totalPixels);
+      desvio = calcularDesvioPadrao(hist, totalPixels, media);
+      char *brilho = classificarBrilho(media);
+      char *contraste = classificarContraste(desvio);
+
+      printf("Media: %.2f (%s)\n", media, brilho);
+      printf("Desvio: %.2f (%s)\n", desvio, contraste);
+      printf("Brilho: (%s)\n", brilho);
+      printf("Contraste: (%s)\n", contraste);
+
       mustRefresh = false;
     }
   }
