@@ -8,7 +8,7 @@
 #include <SDL3/SDL.h>
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
-
+#include <math.h>
 //------------------------------------------------------------------------------
 
 enum constants
@@ -35,19 +35,17 @@ struct MyImage
 //------------------------------------------------------------------------------
 // Globals (argh!)
 //------------------------------------------------------------------------------
-static MyWindow g_window = { .window = NULL, .renderer = NULL };
+static MyWindow g_window = {.window = NULL, .renderer = NULL};
 static MyImage g_image = {
-  .surface = NULL,
-  .texture = NULL,
-  .rect = { .x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f }
-};
+    .surface = NULL,
+    .texture = NULL,
+    .rect = {.x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f}};
 
-static MyWindow g_window2 = { .window = NULL, .renderer = NULL };
+static MyWindow g_window2 = {.window = NULL, .renderer = NULL};
 static MyImage g_image2 = {
-  .surface = NULL,
-  .texture = NULL,
-  .rect = { .x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f }
-};
+    .surface = NULL,
+    .texture = NULL,
+    .rect = {.x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f}};
 
 //------------------------------------------------------------------------------
 // Function declaration
@@ -55,7 +53,6 @@ static MyImage g_image2 = {
 static bool MyWindow_initialize(MyWindow *window, const char *title, int width, int height, SDL_WindowFlags window_flags);
 static void MyWindow_destroy(MyWindow *window);
 static void MyImage_destroy(MyImage *image);
-
 bool MyWindow_initialize(MyWindow *window, const char *title, int width, int height, SDL_WindowFlags window_flags)
 {
   SDL_Log("\tMyWindow_initialize(%s, %d, %d)", title, width, height);
@@ -185,31 +182,31 @@ void load_rgba32(const char *filename, SDL_Renderer *renderer, MyImage *output_i
 
 static void render_window(MyWindow *win, MyImage *img)
 {
-    SDL_SetRenderDrawColor(win->renderer, 128, 128, 128, 255);
-    SDL_RenderClear(win->renderer);
+  SDL_SetRenderDrawColor(win->renderer, 128, 128, 128, 255);
+  SDL_RenderClear(win->renderer);
 
-    SDL_RenderTexture(win->renderer, img->texture, &img->rect, &img->rect);
+  SDL_RenderTexture(win->renderer, img->texture, &img->rect, &img->rect);
 
-    SDL_RenderPresent(win->renderer);
+  SDL_RenderPresent(win->renderer);
 }
 
 static void destroy_pair(MyWindow *win, MyImage *img)
 {
-    MyImage_destroy(img);
-    MyWindow_destroy(win);
+  MyImage_destroy(img);
+  MyWindow_destroy(win);
 }
 
 static void shutdown(void)
 {
-    SDL_Log(">>> shutdown()");
+  SDL_Log(">>> shutdown()");
 
-    destroy_pair(&g_window, &g_image);
-    destroy_pair(&g_window2, &g_image2);
+  destroy_pair(&g_window, &g_image);
+  destroy_pair(&g_window2, &g_image2);
 
-    SDL_Log("\tEncerrando SDL...");
-    SDL_Quit();
+  SDL_Log("\tEncerrando SDL...");
+  SDL_Quit();
 
-    SDL_Log("<<< shutdown()");
+  SDL_Log("<<< shutdown()");
 }
 
 static SDL_AppResult initialize(void)
@@ -246,60 +243,165 @@ static SDL_AppResult initialize(void)
 
 bool convertTonsDeCinza(SDL_Surface *surface)
 {
-    if (!surface)
+  if (!surface)
+  {
+    SDL_Log("\t*** Erro: Imagem inválida (surface == NULL).");
+    return false;
+  }
+
+  bool isGray = true;
+
+  const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
+  Uint32 *pixels = (Uint32 *)surface->pixels;
+
+  Uint8 r, g, b;
+
+  // 🔍 Verifica se já está em escala de cinza
+  for (int y = 0; y < surface->h && isGray; y++)
+  {
+    for (int x = 0; x < surface->w && isGray; x++)
     {
-        SDL_Log("\t*** Erro: Imagem inválida (surface == NULL).");
-        return false;
+      Uint32 pixel = pixels[y * surface->w + x];
+      SDL_GetRGB(pixel, format, NULL, &r, &g, &b);
+
+      if (!(r == g && g == b))
+      {
+        isGray = false;
+      }
+    }
+  }
+
+  SDL_Log("A imagem escolhida %s escala de cinza.",
+          isGray ? "já está em" : "não está em");
+
+  // 🎨 Se não for, converte
+  if (!isGray)
+  {
+    SDL_Log("Convertendo a imagem para escala de cinza");
+
+    SDL_LockSurface(surface);
+
+    const size_t pixelCount = surface->w * surface->h;
+    Uint8 a;
+
+    for (size_t i = 0; i < pixelCount; ++i)
+    {
+      SDL_GetRGBA(pixels[i], format, NULL, &r, &g, &b, &a);
+
+      Uint8 y = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
+
+      pixels[i] = SDL_MapRGBA(format, NULL, y, y, y, a);
     }
 
-    bool isGray = true;
+    SDL_UnlockSurface(surface);
+  }
 
-    const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
-    Uint32 *pixels = (Uint32 *)surface->pixels;
+  return isGray;
+}
 
-    Uint8 r, g, b;
+void calcularHistograma(SDL_Surface *surface, int hist[256])
+{
+  if (!surface)
+    return;
 
-    // 🔍 Verifica se já está em escala de cinza
-    for (int y = 0; y < surface->h && isGray; y++)
-    {
-        for (int x = 0; x < surface->w && isGray; x++)
-        {
-            Uint32 pixel = pixels[y * surface->w + x];
-            SDL_GetRGB(pixel, format, NULL, &r, &g, &b);
+  // Zera o histograma
+  for (int i = 0; i < 256; i++)
+    hist[i] = 0;
 
-            if (!(r == g && g == b))
-            {
-                isGray = false;
-            }
-        }
-    }
+  SDL_LockSurface(surface);
 
-    SDL_Log("A imagem escolhida %s escala de cinza.",
-            isGray ? "já está em" : "não está em");
+  Uint32 *pixels = (Uint32 *)surface->pixels;
+  const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
 
-    // 🎨 Se não for, converte
-    if (!isGray)
-    {
-        SDL_Log("Convertendo a imagem para escala de cinza");
+  Uint8 r, g, b;
 
-        SDL_LockSurface(surface);
+  int totalPixels = surface->w * surface->h;
 
-        const size_t pixelCount = surface->w * surface->h;
-        Uint8 a;
+  for (int i = 0; i < totalPixels; i++)
+  {
+    SDL_GetRGB(pixels[i], format, NULL, &r, &g, &b);
 
-        for (size_t i = 0; i < pixelCount; ++i)
-        {
-            SDL_GetRGBA(pixels[i], format, NULL, &r, &g, &b, &a);
+    // intensidade (já que você está trabalhando com tons de cinza ou quer converter)
+    Uint8 intensidade = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
 
-            Uint8 y = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
+    hist[intensidade]++;
+  }
 
-            pixels[i] = SDL_MapRGBA(format, NULL, y, y, y, a);
-        }
+  SDL_UnlockSurface(surface);
+}
 
-        SDL_UnlockSurface(surface);
-    }
+float calcularMedia(int hist[256], int totalPixels)
+{
+  long soma = 0;
 
-    return isGray;
+  for (int i = 0; i < 256; i++)
+  {
+    soma += i * hist[i];
+  }
+
+  return (float)soma / totalPixels;
+}
+
+float calcularDesvioPadrao(int hist[256], int totalPixels, float media)
+{
+  float soma = 0.0f;
+
+  for (int i = 0; i < 256; i++)
+  {
+    float diff = i - media;
+    soma += diff * diff * hist[i];
+  }
+
+  return sqrtf(soma / totalPixels);
+}
+
+const char *classificarBrilho(float media)
+{
+  if (media < 85)
+    return "Escura";
+  else if (media < 170)
+    return "Media";
+  else
+    return "Clara";
+}
+
+const char *classificarContraste(float desvio)
+{
+  if (desvio < 40)
+    return "Baixo";
+  else if (desvio < 80)
+    return "Medio";
+  else
+    return "Alto";
+}
+
+void renderHistograma(SDL_Renderer *renderer, int hist[256])
+{
+  int max = 0;
+
+  for (int i = 0; i < 256; i++)
+    if (hist[i] > max)
+      max = hist[i];
+
+  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+  SDL_RenderClear(renderer);
+
+  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
+
+  int width = 512; // largura da janela
+  int height = 300;
+
+  for (int i = 0; i < 256; i++)
+  {
+    int barHeight = (hist[i] * height) / max;
+
+    SDL_RenderLine(
+        renderer,
+        i * 2, height,
+        i * 2, height - barHeight);
+  }
+
+  SDL_RenderPresent(renderer);
 }
 
 static void loop(void)
@@ -309,9 +411,25 @@ static void loop(void)
   // Para melhorar o uso da CPU (e consumo de energia), só atualizaremos o
   // conteúdo da janela se realmente for necessário. Nesse exemplo, isso
   // acontece quando invertemos os pixels da imagem.
-  bool mustRefresh = false;
-  render_window(&g_window2,&g_image2);
   render_window(&g_window, &g_image);
+
+  bool mustRefresh = true;
+  render_window(&g_window2, &g_image2);
+  int hist[256];
+  calcularHistograma(g_image.surface, hist);
+  renderHistograma(g_window2.renderer, hist);
+
+  int totalPixels = g_image.surface->w * g_image.surface->h;
+
+  float media = calcularMedia(hist, totalPixels);
+  float desvio = calcularDesvioPadrao(hist, totalPixels, media);
+  const char *brilho = classificarBrilho(media);
+  const char *contraste = classificarContraste(desvio);
+
+  printf("Media: %.2f (%s)\n", media, brilho);
+  printf("Desvio: %.2f (%s)\n", desvio, contraste);
+  printf("Brilho: (%s)\n", brilho);
+  printf("Contraste: (%s)\n", contraste);
 
   SDL_Event event;
   bool isRunning = true;
@@ -337,25 +455,48 @@ static void loop(void)
 
     if (mustRefresh)
     {
-    render_window(&g_window, &g_image);
-    mustRefresh = false;
+      if (g_image.texture)
+        SDL_DestroyTexture(g_image.texture);
+
+      // 🔥 recria a texture a partir da surface modificada
+      g_image.texture = SDL_CreateTextureFromSurface(
+          g_window.renderer,
+          g_image.surface);
+
+      // agora renderiza
+      render_window(&g_window, &g_image);
+      int hist[256];
+      calcularHistograma(g_image.surface, hist);
+      renderHistograma(g_window2.renderer, hist);
+
+      totalPixels = g_image.surface->w * g_image.surface->h;
+
+      media = calcularMedia(hist, totalPixels);
+      desvio = calcularDesvioPadrao(hist, totalPixels, media);
+      char *brilho = classificarBrilho(media);
+      char *contraste = classificarContraste(desvio);
+
+      printf("Media: %.2f (%s)\n", media, brilho);
+      printf("Desvio: %.2f (%s)\n", desvio, contraste);
+      printf("Brilho: (%s)\n", brilho);
+      printf("Contraste: (%s)\n", contraste);
+
+      mustRefresh = false;
     }
   }
-  
+
   SDL_Log("<<< loop()");
 }
-
-
 
 int main(int argc, char *argv[])
 {
   atexit(shutdown);
 
- if (initialize() == SDL_APP_FAILURE)
+  if (initialize() == SDL_APP_FAILURE)
     return SDL_APP_FAILURE;
 
   load_rgba32(argv[1], g_window.renderer, &g_image);
-  
+
   int imageWidth = (int)g_image.rect.w;
   int imageHeight = (int)g_image.rect.h;
 
@@ -370,7 +511,7 @@ int main(int argc, char *argv[])
     SDL_GetWindowBordersSize(g_window.window, &top, &left, NULL, NULL);
 
     SDL_Log("Redefinindo dimensões da janela, de (%d, %d) para (%d, %d), e alterando a posição para (%d, %d).",
-      DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
+            DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
 
     SDL_SetWindowSize(g_window.window, imageWidth, imageHeight);
     SDL_SetWindowPosition(g_window.window, left, top);
