@@ -499,27 +499,54 @@ int main(int argc, char *argv[])
 
   int imageWidth = (int)g_image.rect.w;
   int imageHeight = (int)g_image.rect.h;
+  SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
+    if (!displayID) {
+        fprintf(stderr, "Erro ao obter display principal: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
 
-  if (imageWidth > DEFAULT_WINDOW_WIDTH || imageHeight > DEFAULT_WINDOW_HEIGHT)
-  {
+    const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(displayID);
+    if (!mode) {
+        fprintf(stderr, "Erro ao obter modo de display: %s\n", SDL_GetError());
+        SDL_Quit();
+        return 1;
+    }
+
+    int screenWidth  = mode->w;
+    int screenHeight = mode->h;
+
+    printf("%d", screenHeight);
+    printf("%d", screenWidth);
+
+  // if (imageWidth <= DEFAULT_WINDOW_WIDTH || imageHeight <= DEFAULT_WINDOW_HEIGHT)
+  // {
     // Obtém o tamanho da borda da janela. Neste exemplo, só queremos saber
     // o lado superior e o lado esquerdo, para posicionar a janela corretamente
     // (posicionar a janela na coordenada (0, 0) faria com que a borda do
     // programa ficasse fora da região da tela).
-    int top = 0;
-    int left = 0;
-    SDL_GetWindowBordersSize(g_window.window, &top, &left, NULL, NULL);
+    int left = (screenWidth  - imageWidth) / 2;
+    int top  = (screenHeight - imageHeight) / 2;
+
+    int borderTop = 0, borderLeft = 0;
+    SDL_GetWindowBordersSize(g_window.window, &borderTop, &borderLeft, NULL, NULL);
+    left -= borderLeft;
+    top  -= borderTop;
 
     SDL_Log("Redefinindo dimensões da janela, de (%d, %d) para (%d, %d), e alterando a posição para (%d, %d).",
-            DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
+      DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
 
     SDL_SetWindowSize(g_window.window, imageWidth, imageHeight);
     SDL_SetWindowPosition(g_window.window, left, top);
 
     SDL_SyncWindow(g_window.window);
-  }
+  // }
+   
+    SDL_SetWindowPosition(g_window2.window, left + borderLeft + imageWidth, top);
 
   loop();
+
+  return 0;
 
   return 0;
 }
