@@ -4,7 +4,9 @@
             "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "C:/ComputacaoVisual/libs/SDL3/include"
+                "C:/ComputacaoVisual/libs/SDL3/include",
+                "C:/ComputacaoVisual/libs/SDL3_image/include",
+                "C:/ComputacaoVisual/libs/SDL3_ttf/include"
             ],
             "defines": [
                 "_DEBUG",

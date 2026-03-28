@@ -15,7 +15,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <SDL3/SDL.h>
-#include <SDL3/SDL_main.h>
+//#include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 #include <SDL3_ttf/SDL_ttf.h>
 #include <math.h>
@@ -57,7 +57,7 @@ static MyImage g_image2 = {
     .texture = NULL,
     .rect = {.x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f}};
 
-// ✅ ADICIONE AQUI
+// ADICIONE AQUI
 static TTF_Font *g_font = NULL;
 
 //------------------------------------------------------------------------------
@@ -273,7 +273,7 @@ static SDL_AppResult initialize(void)
 
   // Carregar fonte
   SDL_Log("\tCarregando fonte...");
-  g_font = TTF_OpenFont("arial.ttf", 16);
+  g_font = TTF_OpenFont("C:/Windows/Fonts/arial.ttf", 16);
   if (!g_font)
   {
     SDL_Log("\t*** Erro ao carregar fonte: %s", SDL_GetError());
@@ -471,6 +471,12 @@ void renderTexto(SDL_Renderer *renderer, TTF_Font *font,
 
 static void loop(void)
 {
+
+  char linha1[100];
+  char linha2[100];
+  char linha3[100];
+  char linha4[100];
+
   SDL_Log(">>> loop()");
 
   // Para melhorar o uso da CPU (e consumo de energia), só atualizaremos o
@@ -497,11 +503,6 @@ static void loop(void)
   float desvio = calcularDesvioPadrao(hist, totalPixels, media);
   const char *brilho = classificarBrilho(media);
   const char *contraste = classificarContraste(desvio);
-
-  char linha1[100];
-  char linha2[100];
-  char linha3[100];
-  char linha4[100];
 
   snprintf(linha1, sizeof(linha1), "Brilho: %s", brilho);
   snprintf(linha2, sizeof(linha2), "Contraste: %s", contraste);
@@ -589,6 +590,7 @@ static void loop(void)
 
 int main(int argc, char *argv[])
 {
+  
   atexit(shutdown);
 
   if (initialize() == SDL_APP_FAILURE)
