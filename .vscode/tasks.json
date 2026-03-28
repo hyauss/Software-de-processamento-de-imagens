@@ -13,7 +13,8 @@
                 "-Ic:/Users/vinia/DocumentosForaDaNuvem/Enviroments/SDL3/include",
                 "-Lc:/Users/vinia/DocumentosForaDaNuvem/Enviroments/SDL3/lib",
                 "-lSDL3",
-                "-lSDL3_image"
+                "-lSDL3_image",
+                "-lSDL3_ttf"
             ],
             "options": {
                 "cwd": "C:/msys64/ucrt64/bin"
