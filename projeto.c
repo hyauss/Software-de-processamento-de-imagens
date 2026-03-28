@@ -18,6 +18,7 @@
 #include <SDL3/SDL_main.h>
 #include <SDL3_image/SDL_image.h>
 #include <math.h>
+#include <SDL3_ttf/SDL_ttf.h>
 //------------------------------------------------------------------------------
 
 enum constants
@@ -58,6 +59,7 @@ static MyImage g_image2 = {
 
 static SDL_Surface *g_originalSurface = NULL;
 static bool g_equalizado = false;
+static TTF_Font *g_font = NULL;
 //------------------------------------------------------------------------------
 // Function declaration
 //------------------------------------------------------------------------------
@@ -216,6 +218,18 @@ static void shutdown(void)
   SDL_DestroySurface(g_originalSurface);
   g_originalSurface = NULL;
 
+  // Liberar fonte
+  if (g_font)
+  {
+    SDL_Log("\tDestruindo fonte...");
+    TTF_CloseFont(g_font);
+    g_font = NULL;
+  }
+
+  // Finalizar SDL_ttf
+  SDL_Log("\tEncerrando SDL_ttf...");
+  TTF_Quit();
+
   SDL_Log("\tEncerrando SDL...");
   SDL_Quit();
 
@@ -234,6 +248,15 @@ static SDL_AppResult initialize(void)
     return SDL_APP_FAILURE;
   }
 
+  // Inicializa SDL_ttf
+  SDL_Log("\tIniciando SDL_ttf...");
+  if (!TTF_Init())
+  {
+    SDL_Log("\t*** Erro ao iniciar SDL_ttf: %s", SDL_GetError());
+    SDL_Log("<<< initialize()");
+    return SDL_APP_FAILURE;
+  }
+
   SDL_Log("\tCriando janela e renderizador...");
   if (!MyWindow_initialize(&g_window, "Minha Janela", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0))
   {
@@ -246,6 +269,16 @@ static SDL_AppResult initialize(void)
   if (!MyWindow_initialize(&g_window2, "Minha Janela2", DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, 0))
   {
     SDL_Log("\t*** Erro ao criar a janela e/ou renderizador: %s", SDL_GetError());
+    SDL_Log("<<< initialize()");
+    return SDL_APP_FAILURE;
+  }
+
+  // Carregar fonte
+  SDL_Log("\tCarregando fonte...");
+  g_font = TTF_OpenFont("C:/Windows/Fonts/arial.ttf", 16);
+  if (!g_font)
+  {
+    SDL_Log("\t*** Erro ao carregar fonte: %s", SDL_GetError());
     SDL_Log("<<< initialize()");
     return SDL_APP_FAILURE;
   }
@@ -333,7 +366,6 @@ void calcularHistograma(SDL_Surface *surface, int hist[256])
   {
     SDL_GetRGB(pixels[i], format, NULL, &r, &g, &b);
 
-
     Uint8 intensidade = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
 
     hist[intensidade]++;
@@ -397,7 +429,7 @@ void renderHistograma(SDL_Renderer *renderer, int hist[256])
 
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-  int height = 300;
+  int height = 260;
 
   for (int i = 0; i < 256; i++)
   {
@@ -410,11 +442,43 @@ void renderHistograma(SDL_Renderer *renderer, int hist[256])
   }
 }
 
+void renderTexto(SDL_Renderer *renderer, TTF_Font *font,
+                 const char *texto, int x, int y)
+{
+  SDL_Color cor = {255, 255, 255, 255};
+
+  SDL_Surface *surface = TTF_RenderText_Blended(font, texto, 0, cor);
+  if (!surface)
+    return;
+
+  SDL_Texture *texture = SDL_CreateTextureFromSurface(renderer, surface);
+  if (!texture)
+  {
+    SDL_DestroySurface(surface);
+    return;
+  }
+
+  SDL_FRect dst = {x, y, surface->w, surface->h};
+
+  SDL_RenderTexture(renderer, texture, NULL, &dst);
+
+  SDL_DestroySurface(surface);
+  SDL_DestroyTexture(texture);
+}
+
 static void loop(void)
 {
   SDL_Log(">>> loop()");
 
-  SDL_FRect botao = {20, 320, 150, 50};
+  char linha1[100];
+  char linha2[100];
+  char linha3[100];
+  char linha4[100];
+
+  SDL_FRect botao = {20, 280, 150, 50};
+
+  int textX = 200;
+  int textY = 280;
 
   enum
   {
@@ -441,10 +505,10 @@ static void loop(void)
   const char *brilho = classificarBrilho(media);
   const char *contraste = classificarContraste(desvio);
 
-  printf("Media: %.2f (%s)\n", media, brilho);
-  printf("Desvio: %.2f (%s)\n", desvio, contraste);
-  printf("Brilho: (%s)\n", brilho);
-  printf("Contraste: (%s)\n", contraste);
+  snprintf(linha1, sizeof(linha1), "Brilho: %s", brilho);
+  snprintf(linha2, sizeof(linha2), "Contraste: %s", contraste);
+  snprintf(linha3, sizeof(linha3), "Media: %.2f", media);
+  snprintf(linha4, sizeof(linha4), "Desvio: %.2f", desvio);
 
   SDL_Event event;
   bool isRunning = true;
@@ -507,7 +571,7 @@ static void loop(void)
       if (g_image.texture)
         SDL_DestroyTexture(g_image.texture);
 
-      //recria a texture a partir da surface modificada
+      // recria a texture a partir da surface modificada
       g_image.texture = SDL_CreateTextureFromSurface(
           g_window.renderer,
           g_image.surface);
@@ -517,42 +581,71 @@ static void loop(void)
       SDL_SetRenderDrawColor(g_window2.renderer, 0, 0, 0, 255);
       SDL_RenderClear(g_window2.renderer);
 
+      // histograma
       calcularHistograma(g_image.surface, hist);
       renderHistograma(g_window2.renderer, hist);
 
-      // botão
-      switch (estadoBotao)
-      {
-      case NORMAL:
-        SDL_SetRenderDrawColor(g_window2.renderer, 0, 102, 204, 255);
-        break;
-      case HOVER:
-        SDL_SetRenderDrawColor(g_window2.renderer, 102, 178, 255, 255);
-        break;
-      case CLICKED:
-        SDL_SetRenderDrawColor(g_window2.renderer, 0, 51, 153, 255);
-        break;
-      }
+      // ================= BOTÃO =================
+switch (estadoBotao)
+{
+case NORMAL:
+  SDL_SetRenderDrawColor(g_window2.renderer, 0, 102, 204, 255);
+  break;
+case HOVER:
+  SDL_SetRenderDrawColor(g_window2.renderer, 102, 178, 255, 255);
+  break;
+case CLICKED:
+  SDL_SetRenderDrawColor(g_window2.renderer, 0, 51, 153, 255);
+  break;
+}
 
-      SDL_RenderFillRect(g_window2.renderer, &botao);
+// fundo do botão
+SDL_RenderFillRect(g_window2.renderer, &botao);
 
-      SDL_SetRenderDrawColor(g_window2.renderer, 255, 255, 255, 255);
-      SDL_RenderRect(g_window2.renderer, &botao);
+// borda
+SDL_SetRenderDrawColor(g_window2.renderer, 255, 255, 255, 255);
+SDL_RenderRect(g_window2.renderer, &botao);
 
+// texto do botão
+const char *textoBotao = g_equalizado ? "Ver original" : "Equalizar";
+
+// tamanho do texto
+int btnTextW = 0, btnTextH = 0;
+TTF_GetStringSize(g_font, textoBotao, 0, &btnTextW, &btnTextH);
+
+// centralizar no botão
+int btnTextX = botao.x + (botao.w - btnTextW) / 2;
+int btnTextY = botao.y + (botao.h - btnTextH) / 2;
+
+renderTexto(g_window2.renderer, g_font, textoBotao, btnTextX, btnTextY);
+
+// ================= TEXTO INFO =================
+
+// posição fixa AO LADO do botão
+int infoX = botao.x + botao.w + 20;
+int infoY = botao.y;
+
+// recalcula métricas
+totalPixels = g_image.surface->w * g_image.surface->h;
+media = calcularMedia(hist, totalPixels);
+desvio = calcularDesvioPadrao(hist, totalPixels, media);
+
+const char *brilho = classificarBrilho(media);
+const char *contraste = classificarContraste(desvio);
+
+snprintf(linha1, sizeof(linha1), "Brilho: %s", brilho);
+snprintf(linha2, sizeof(linha2), "Contraste: %s", contraste);
+snprintf(linha3, sizeof(linha3), "Media: %.2f", media);
+snprintf(linha4, sizeof(linha4), "Desvio: %.2f", desvio);
+
+// desenha info (agora separado do botão)
+renderTexto(g_window2.renderer, g_font, linha1, infoX, infoY);
+renderTexto(g_window2.renderer, g_font, linha2, infoX, infoY + 20);
+renderTexto(g_window2.renderer, g_font, linha3, infoX, infoY + 40);
+renderTexto(g_window2.renderer, g_font, linha4, infoX, infoY + 60);
+
+      // FINAL
       SDL_RenderPresent(g_window2.renderer);
-
-      totalPixels = g_image.surface->w * g_image.surface->h;
-
-      media = calcularMedia(hist, totalPixels);
-      desvio = calcularDesvioPadrao(hist, totalPixels, media);
-      char *brilho = classificarBrilho(media);
-      char *contraste = classificarContraste(desvio);
-
-      printf("Media: %.2f (%s)\n", media, brilho);
-      printf("Desvio: %.2f (%s)\n", desvio, contraste);
-      printf("Brilho: (%s)\n", brilho);
-      printf("Contraste: (%s)\n", contraste);
-
       mustRefresh = false;
     }
   }
