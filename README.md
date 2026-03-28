@@ -68,9 +68,9 @@ Sobrescreve caso já exista
 
 ## Controles
 
-Tecla "1": converter para escala de cinza
-
 Teclas "S": salvar imagem
+
+Botão para equalizar e ver imagem original
 
 ## Tecnologias utilizadas
 
@@ -83,18 +83,35 @@ Bibliotecas: SDL3, SDL_image, SDL_ttf
 Pré-requisitos:
 - SDL3 instalada
 - SDL_image instalada
+- SDL_ttf instalada
 
 Compilação:
 
+Utilize o debug do windows, no arquivo projeto.c.
+
+OBS: Vai falhar, mas a ideia é usar apenas para gerar o executável de uma maneira mais fácil.
+
+
+<img width="45" height="28" alt="image" src="https://github.com/user-attachments/assets/589ba541-f46c-4e89-98d9-78a11f8551c4" />
+
+
 Execução:
+
+No terminal rode
+
+    projeto.exe assets/nomeDaSuaImagem.extaoDaSuaImagem
+    
+    Exemplo:
+    
+    projeto.exe assets/test.bmp
 
 ## Contribuições
 
-Gabriel Barros Albertini: Participação em todas etapas, especialmente Equaliazação e README
+Gabriel Barros Albertini: Participação em todas etapas, especialmente SDL_ttf e README.
 
-Gustavo Luigi Chao Pinotti: Participação em todas etapas, especialmente Interface Gráfica
+Gustavo Luigi Chao Pinotti: Participação em todas etapas, especialmente centralização das janelas e função para salvar.
 
-Rafael de Menezes Ros: Participação em todas etapas, especialmente Histograma
+Rafael de Menezes Ros: Participação em todas etapas.
 
-Vinicius Alves Marques: Participação em todas etapas, especialmente Carregamento de imagem, Conversão para escala de cinza, Interface Gráfica, Histograma, Equalização e Salvamento
+Vinicius Alves Marques: Participação em todas etapas, especialmente Carregamento de imagem, Conversão para escala de cinza, Interface Gráfica, Histograma, Equalização.
 
