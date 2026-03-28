@@ -1,6 +1,15 @@
 // Copyright (c) 2026 Andre Kishimoto - https://kishimoto.com.br/
 // SPDX-License-Identifier: Apache-2.0
 
+// ------------------------------ Integrantes ----------------------------------
+
+// Gabriel Barros Albertini - 10419482
+// Gustavo Luigi Chao Pinotti - 10419700
+// Rafael de Menezes Ros - 10417954
+// Vinicius Alves Marques - 10417880
+
+// -----------------------------------------------------------------------------
+
 //------------------------------------------------------------------------------
 #include <stdio.h>
 #include <stdlib.h>
