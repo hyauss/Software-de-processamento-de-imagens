@@ -69,6 +69,7 @@ Sobrescreve caso já exista
 ## Controles
 
 Tecla "1": converter para escala de cinza
+
 Teclas "S": salvar imagem
 
 ## Tecnologias utilizadas
