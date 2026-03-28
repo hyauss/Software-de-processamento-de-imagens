@@ -56,6 +56,8 @@ static MyImage g_image2 = {
     .texture = NULL,
     .rect = {.x = 0.0f, .y = 0.0f, .w = 0.0f, .h = 0.0f}};
 
+static SDL_Surface *g_originalSurface = NULL;
+static bool g_equalizado = false;
 //------------------------------------------------------------------------------
 // Function declaration
 //------------------------------------------------------------------------------
@@ -211,6 +213,8 @@ static void shutdown(void)
 
   destroy_pair(&g_window, &g_image);
   destroy_pair(&g_window2, &g_image2);
+  SDL_DestroySurface(g_originalSurface);
+  g_originalSurface = NULL;
 
   SDL_Log("\tEncerrando SDL...");
   SDL_Quit();
@@ -265,7 +269,7 @@ bool convertTonsDeCinza(SDL_Surface *surface)
 
   Uint8 r, g, b;
 
-  // 🔍 Verifica se já está em escala de cinza
+  // Verifica se já está em escala de cinza
   for (int y = 0; y < surface->h && isGray; y++)
   {
     for (int x = 0; x < surface->w && isGray; x++)
@@ -283,7 +287,6 @@ bool convertTonsDeCinza(SDL_Surface *surface)
   SDL_Log("A imagem escolhida %s escala de cinza.",
           isGray ? "já está em" : "não está em");
 
-  // 🎨 Se não for, converte
   if (!isGray)
   {
     SDL_Log("Convertendo a imagem para escala de cinza");
@@ -330,7 +333,7 @@ void calcularHistograma(SDL_Surface *surface, int hist[256])
   {
     SDL_GetRGB(pixels[i], format, NULL, &r, &g, &b);
 
-    // intensidade (já que você está trabalhando com tons de cinza ou quer converter)
+
     Uint8 intensidade = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
 
     hist[intensidade]++;
@@ -392,12 +395,8 @@ void renderHistograma(SDL_Renderer *renderer, int hist[256])
     if (hist[i] > max)
       max = hist[i];
 
-  SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-  SDL_RenderClear(renderer);
-
   SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
 
-  int width = 512; // largura da janela
   int height = 300;
 
   for (int i = 0; i < 256; i++)
@@ -409,13 +408,21 @@ void renderHistograma(SDL_Renderer *renderer, int hist[256])
         i * 2, height,
         i * 2, height - barHeight);
   }
-
-  SDL_RenderPresent(renderer);
 }
 
 static void loop(void)
 {
   SDL_Log(">>> loop()");
+
+  SDL_FRect botao = {20, 320, 150, 50};
+
+  enum
+  {
+    NORMAL,
+    HOVER,
+    CLICKED
+  };
+  int estadoBotao = NORMAL;
 
   // Para melhorar o uso da CPU (e consumo de energia), só atualizaremos o
   // conteúdo da janela se realmente for necessário. Nesse exemplo, isso
@@ -423,7 +430,6 @@ static void loop(void)
   render_window(&g_window, &g_image);
 
   bool mustRefresh = true;
-  render_window(&g_window2, &g_image2);
   int hist[256];
   calcularHistograma(g_image.surface, hist);
   renderHistograma(g_window2.renderer, hist);
@@ -444,6 +450,23 @@ static void loop(void)
   bool isRunning = true;
   while (isRunning)
   {
+    float mx, my;
+    Uint32 mouseState = SDL_GetMouseState(&mx, &my);
+
+    bool dentro = (mx >= botao.x && mx <= botao.x + botao.w &&
+                   my >= botao.y && my <= botao.y + botao.h);
+
+    if (dentro)
+    {
+      if (mouseState & SDL_BUTTON_LMASK)
+        estadoBotao = CLICKED;
+      else
+        estadoBotao = HOVER;
+    }
+    else
+    {
+      estadoBotao = NORMAL;
+    }
     while (SDL_PollEvent(&event))
     {
       switch (event.type)
@@ -452,11 +475,28 @@ static void loop(void)
         isRunning = false;
         break;
 
-      case SDL_EVENT_KEY_DOWN:
-        if (event.key.key == SDLK_1 && !event.key.repeat)
+      case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        if (dentro)
         {
-          convertTonsDeCinza(g_image.surface);
+          if (!g_equalizado)
+          {
+            equalizarHistogramaSurface(g_image.surface);
+          }
+          else
+          {
+            SDL_DestroySurface(g_image.surface);
+            g_image.surface = SDL_ConvertSurface(g_originalSurface, g_originalSurface->format);
+          }
+
+          g_equalizado = !g_equalizado;
           mustRefresh = true;
+        }
+        break;
+
+      case SDL_EVENT_KEY_DOWN:
+        if (event.key.key == SDLK_S && !event.key.repeat)
+        {
+          salvarImagem(g_image.surface);
         }
         break;
       }
@@ -467,16 +507,39 @@ static void loop(void)
       if (g_image.texture)
         SDL_DestroyTexture(g_image.texture);
 
-      // 🔥 recria a texture a partir da surface modificada
+      //recria a texture a partir da surface modificada
       g_image.texture = SDL_CreateTextureFromSurface(
           g_window.renderer,
           g_image.surface);
 
       // agora renderiza
       render_window(&g_window, &g_image);
-      int hist[256];
+      SDL_SetRenderDrawColor(g_window2.renderer, 0, 0, 0, 255);
+      SDL_RenderClear(g_window2.renderer);
+
       calcularHistograma(g_image.surface, hist);
       renderHistograma(g_window2.renderer, hist);
+
+      // botão
+      switch (estadoBotao)
+      {
+      case NORMAL:
+        SDL_SetRenderDrawColor(g_window2.renderer, 0, 102, 204, 255);
+        break;
+      case HOVER:
+        SDL_SetRenderDrawColor(g_window2.renderer, 102, 178, 255, 255);
+        break;
+      case CLICKED:
+        SDL_SetRenderDrawColor(g_window2.renderer, 0, 51, 153, 255);
+        break;
+      }
+
+      SDL_RenderFillRect(g_window2.renderer, &botao);
+
+      SDL_SetRenderDrawColor(g_window2.renderer, 255, 255, 255, 255);
+      SDL_RenderRect(g_window2.renderer, &botao);
+
+      SDL_RenderPresent(g_window2.renderer);
 
       totalPixels = g_image.surface->w * g_image.surface->h;
 
@@ -497,6 +560,56 @@ static void loop(void)
   SDL_Log("<<< loop()");
 }
 
+void equalizarHistogramaSurface(SDL_Surface *surface)
+{
+  int hist[256] = {0};
+  int cdf[256] = {0};
+
+  calcularHistograma(surface, hist);
+
+  cdf[0] = hist[0];
+  for (int i = 1; i < 256; i++)
+    cdf[i] = cdf[i - 1] + hist[i];
+
+  int total = surface->w * surface->h;
+
+  SDL_LockSurface(surface);
+
+  Uint32 *pixels = (Uint32 *)surface->pixels;
+  const SDL_PixelFormatDetails *format = SDL_GetPixelFormatDetails(surface->format);
+
+  Uint8 r, g, b, a;
+
+  for (int i = 0; i < total; i++)
+  {
+    SDL_GetRGBA(pixels[i], format, NULL, &r, &g, &b, &a);
+
+    Uint8 intensidade = (Uint8)(0.2125 * r + 0.7154 * g + 0.0721 * b);
+
+    Uint8 novo = (Uint8)((cdf[intensidade] - cdf[0]) * 255.0 / (total - cdf[0]));
+
+    pixels[i] = SDL_MapRGBA(format, NULL, novo, novo, novo, a);
+  }
+
+  SDL_UnlockSurface(surface);
+}
+
+void salvarImagem(SDL_Surface *surface)
+{
+  if (!surface)
+  {
+    printf("Surface nula!\n");
+    return;
+  }
+
+  if (IMG_SavePNG(surface, "output_image.png") == 0)
+  {
+    printf("Erro ao salvar PNG: %s\n", SDL_GetError());
+  }
+
+  printf("output_image salvo\n");
+}
+
 int main(int argc, char *argv[])
 {
   atexit(shutdown);
@@ -505,57 +618,52 @@ int main(int argc, char *argv[])
     return SDL_APP_FAILURE;
 
   load_rgba32(argv[1], g_window.renderer, &g_image);
+  convertTonsDeCinza(g_image.surface);
+  g_originalSurface = SDL_ConvertSurface(g_image.surface, g_image.surface->format);
 
   int imageWidth = (int)g_image.rect.w;
   int imageHeight = (int)g_image.rect.h;
   SDL_DisplayID displayID = SDL_GetPrimaryDisplay();
-    if (!displayID) {
-        fprintf(stderr, "Erro ao obter display principal: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
+  if (!displayID)
+  {
+    fprintf(stderr, "Erro ao obter display principal: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
 
-    const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(displayID);
-    if (!mode) {
-        fprintf(stderr, "Erro ao obter modo de display: %s\n", SDL_GetError());
-        SDL_Quit();
-        return 1;
-    }
+  const SDL_DisplayMode *mode = SDL_GetDesktopDisplayMode(displayID);
+  if (!mode)
+  {
+    fprintf(stderr, "Erro ao obter modo de display: %s\n", SDL_GetError());
+    SDL_Quit();
+    return 1;
+  }
 
-    int screenWidth  = mode->w;
-    int screenHeight = mode->h;
+  int screenWidth = mode->w;
+  int screenHeight = mode->h;
 
-    printf("%d", screenHeight);
-    printf("%d", screenWidth);
+  printf("%d", screenHeight);
+  printf("%d", screenWidth);
 
-  // if (imageWidth <= DEFAULT_WINDOW_WIDTH || imageHeight <= DEFAULT_WINDOW_HEIGHT)
-  // {
-    // Obtém o tamanho da borda da janela. Neste exemplo, só queremos saber
-    // o lado superior e o lado esquerdo, para posicionar a janela corretamente
-    // (posicionar a janela na coordenada (0, 0) faria com que a borda do
-    // programa ficasse fora da região da tela).
-    int left = (screenWidth  - imageWidth) / 2;
-    int top  = (screenHeight - imageHeight) / 2;
+  int left = (screenWidth - imageWidth) / 2;
+  int top = (screenHeight - imageHeight) / 2;
 
-    int borderTop = 0, borderLeft = 0;
-    SDL_GetWindowBordersSize(g_window.window, &borderTop, &borderLeft, NULL, NULL);
-    left -= borderLeft;
-    top  -= borderTop;
+  int borderTop = 0, borderLeft = 0;
+  SDL_GetWindowBordersSize(g_window.window, &borderTop, &borderLeft, NULL, NULL);
+  left -= borderLeft;
+  top -= borderTop;
 
-    SDL_Log("Redefinindo dimensões da janela, de (%d, %d) para (%d, %d), e alterando a posição para (%d, %d).",
-      DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
+  SDL_Log("Redefinindo dimensões da janela, de (%d, %d) para (%d, %d), e alterando a posição para (%d, %d).",
+          DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT, imageWidth, imageHeight, left, top);
 
-    SDL_SetWindowSize(g_window.window, imageWidth, imageHeight);
-    SDL_SetWindowPosition(g_window.window, left, top);
+  SDL_SetWindowSize(g_window.window, imageWidth, imageHeight);
+  SDL_SetWindowPosition(g_window.window, left, top);
 
-    SDL_SyncWindow(g_window.window);
-  // }
-   
-    SDL_SetWindowPosition(g_window2.window, left + borderLeft + imageWidth, top);
+  SDL_SyncWindow(g_window.window);
+
+  SDL_SetWindowPosition(g_window2.window, left + borderLeft + imageWidth, top);
 
   loop();
-
-  return 0;
 
   return 0;
 }
